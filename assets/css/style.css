@@ -1,0 +1,40 @@
+/* Main Styles */
+body {
+    padding-top: 56px;
+    background-color: #f8f9fa;
+}
+
+.card {
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    font-weight: 500;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(33, 40, 50, 0.125);
+}
+
+/* Dashboard Cards */
+.card-stat {
+    border-left: 0.25rem solid #4e73df;
+}
+
+/* Forms */
+.form-control, .form-select {
+    padding: 0.5rem 0.75rem;
+}
+
+/* Tables */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #4e73df;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    body {
+        padding-top: 72px;
+    }
+}
