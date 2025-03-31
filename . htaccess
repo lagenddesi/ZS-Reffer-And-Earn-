@@ -1,13 +1,29 @@
-# Prevent directory listing
+# Basic security
 Options -Indexes
+ServerSignature Off
 
-# Protect sensitive files
-<FilesMatch "\.(env|config|sql|htaccess)$">
-    Order allow,deny
+# Prevent access to sensitive files
+<FilesMatch "(\.htaccess|\.htpasswd|\.ini|\.log|\.sh|\.sql)$">
+    Order Allow,Deny
     Deny from all
 </FilesMatch>
 
-# Redirect to HTTPS if available
+# Prevent directory listing
+IndexIgnore *
+
+# PHP settings
+php_flag display_errors off
+php_value upload_max_filesize 10M
+php_value post_max_size 12M
+
+# URL Rewriting
 RewriteEngine On
+
+# Redirect to HTTPS if available
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Redirect all requests to index.php if file doesn't exist
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]
