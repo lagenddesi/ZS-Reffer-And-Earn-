@@ -1,158 +1,145 @@
 <?php
-require 'config.php';
+require_once 'includes/config.php';
+require_once 'includes/auth.php';
+require_login();
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
-
-// Get user data
-$user_id = $_SESSION['user_id'];
-$user = $conn->query("SELECT * FROM users WHERE id=$user_id")->fetch_assoc();
-
-// Get investment packages
-$packages = $conn->query("SELECT * FROM investment_packages WHERE status=1");
-
-// Get transactions (limited to 10 for performance)
-$transactions = $conn->query("SELECT * FROM transactions WHERE user_id=$user_id ORDER BY id DESC LIMIT 10");
-
-// Get referral count
-$referrals = $conn->query("SELECT COUNT(id) as count FROM users WHERE referral_code='".$user['username']."'")->fetch_assoc();
+$user = getUser($_SESSION['user_id']);
+$investments = getUserInvestments($_SESSION['user_id']);
+$referrals = getUserReferrals($_SESSION['user_id']);
+$transactions = getUserTransactions($_SESSION['user_id']);
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Dashboard | <?php echo $site_name; ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Investment Platform</title>
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="#"><?php echo $site_name; ?></a>
-        <div class="ml-auto">
-            <span class="text-light me-3">Welcome, <?php echo $user['username']; ?></span>
-            <a href="logout.php" class="btn btn-sm btn-danger">Logout</a>
-        </div>
-    </div>
-</nav>
-
-<div class="container mt-4">
-    <div class="row">
-        <!-- Balance Card -->
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Account Balance</h5>
-                    <h2>$<?php echo number_format($user['balance'], 2); ?></h2>
-                    <div class="d-flex justify-content-between mt-3">
-                        <a href="deposit.php" class="btn btn-sm btn-success">Deposit</a>
-                        <a href="withdraw.php" class="btn btn-sm btn-primary">Withdraw</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Referral Card -->
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Referral Program</h5>
-                    <p>Total Referrals: <?php echo $referrals['count']; ?></p>
-                    <div class="input-group mb-3">
-                        <input type="text" id="refLink" class="form-control" value="<?php echo $base_url; ?>register.php?ref=<?php echo $user['username']; ?>" readonly>
-                        <button class="btn btn-outline-secondary" onclick="copyRefLink()">Copy</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Investment Card -->
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Active Investments</h5>
-                    <?php
-                    $active_investments = $conn->query("SELECT COUNT(id) as count FROM user_investments WHERE user_id=$user_id AND status=1")->fetch_assoc();
-                    ?>
-                    <p>Active Packages: <?php echo $active_investments['count']; ?></p>
-                    <a href="invest.php" class="btn btn-sm btn-warning">Invest Now</a>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php include 'includes/header.php'; ?>
     
-    <!-- Investment Packages -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h4>Investment Packages</h4>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        Account Balance
+                    </div>
+                    <div class="card-body">
+                        <h3>$<?= number_format($user['balance'], 2) ?></h3>
+                        <a href="deposit.php" class="btn btn-success">Deposit</a>
+                        <a href="withdraw.php" class="btn btn-primary">Withdraw</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        Active Investments
+                    </div>
+                    <div class="card-body">
+                        <?php if (count($investments) > 0): ?>
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Package</th>
+                                        <th>Amount</th>
+                                        <th>Daily Profit</th>
+                                        <th>End Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($investments as $investment): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($investment['package_name']) ?></td>
+                                            <td>$<?= number_format($investment['amount'], 2) ?></td>
+                                            <td>$<?= number_format($investment['daily_profit'], 2) ?></td>
+                                            <td><?= date('M d, Y', strtotime($investment['end_date'])) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        <?php else: ?>
+                            <p>You don't have any active investments.</p>
+                            <a href="packages.php" class="btn btn-primary">Invest Now</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <?php while($package = $packages->fetch_assoc()): ?>
-                <div class="col-md-4 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5><?php echo $package['name']; ?></h5>
-                            <p>ROI: <?php echo $package['roi']; ?>%</p>
-                            <p>Duration: <?php echo $package['duration']; ?> days</p>
-                            <p>Min: $<?php echo $package['min_amount']; ?></p>
-                            <a href="invest.php?package=<?php echo $package['id']; ?>" class="btn btn-sm btn-primary">Invest</a>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Referral Program
+                    </div>
+                    <div class="card-body">
+                        <p>Your referral link:</p>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="referralLink" 
+                                   value="<?= "https://yourdomain.com/register.php?ref=" . $user['referral_code'] ?>" readonly>
+                            <button class="btn btn-outline-secondary" onclick="copyReferralLink()">Copy</button>
                         </div>
+                        <p>Total referrals: <?= count($referrals) ?></p>
+                        <a href="referrals.php" class="btn btn-info">View Referrals</a>
                     </div>
                 </div>
-                <?php endwhile; ?>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Recent Transactions
+                    </div>
+                    <div class="card-body">
+                        <?php if (count($transactions) > 0): ?>
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Amount</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach (array_slice($transactions, 0, 5) as $transaction): ?>
+                                        <tr>
+                                            <td><?= date('M d', strtotime($transaction['created_at'])) ?></td>
+                                            <td>$<?= number_format($transaction['amount'], 2) ?></td>
+                                            <td><?= ucfirst($transaction['type']) ?></td>
+                                            <td>
+                                                <span class="badge bg-<?= getStatusBadge($transaction['status']) ?>">
+                                                    <?= ucfirst($transaction['status']) ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                            <a href="transactions.php" class="btn btn-sm btn-outline-primary">View All</a>
+                        <?php else: ?>
+                            <p>No transactions yet.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    
-    <!-- Recent Transactions -->
-    <div class="card">
-        <div class="card-header">
-            <h4>Recent Transactions</h4>
-        </div>
-        <div class="card-body">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php while($txn = $transactions->fetch_assoc()): ?>
-                    <tr>
-                        <td><?php echo date('d M Y', strtotime($txn['created_at'])); ?></td>
-                        <td><?php echo ucfirst($txn['type']); ?></td>
-                        <td>$<?php echo number_format($txn['amount'], 2); ?></td>
-                        <td>
-                            <span class="badge bg-<?php 
-                                echo $txn['status'] == 'approved' ? 'success' : 
-                                     ($txn['status'] == 'pending' ? 'warning' : 'danger'); 
-                            ?>">
-                                <?php echo ucfirst($txn['status']); ?>
-                            </span>
-                        </td>
-                    </tr>
-                    <?php endwhile; ?>
-                </tbody>
-            </table>
-            <a href="transactions.php" class="btn btn-sm btn-secondary">View All</a>
-        </div>
-    </div>
-</div>
 
-<script>
-function copyRefLink() {
-    var copyText = document.getElementById("refLink");
-    copyText.select();
-    copyText.setSelectionRange(0, 99999);
-    document.execCommand("copy");
-    alert("Referral link copied!");
-}
-</script>
+    <script src="assets/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function copyReferralLink() {
+            var copyText = document.getElementById("referralLink");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            document.execCommand("copy");
+            alert("Referral link copied!");
+        }
+    </script>
 </body>
 </html>
