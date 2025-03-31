@@ -1,38 +1,47 @@
-// packages.php
-function getInvestmentPackages() {
-    global $pdo;
-    $stmt = $pdo->query("SELECT * FROM packages WHERE is_active = TRUE");
-    return $stmt->fetchAll();
-}
+<?php
+require_once 'includes/config.php';
+require_once 'includes/auth.php';
+require_login();
 
-function createInvestment($user_id, $package_id, $amount) {
-    global $pdo;
+$packages = getInvestmentPackages();
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Investment Packages</title>
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <?php include 'includes/header.php'; ?>
     
-    // Get package details
-    $stmt = $pdo->prepare("SELECT * FROM packages WHERE id = ?");
-    $stmt->execute([$package_id]);
-    $package = $stmt->fetch();
-    
-    if (!$package) return false;
-    
-    // Calculate daily profit
-    $daily_profit = ($amount * $package['roi_percentage']) / 100;
-    
-    // Calculate end date
-    $end_date = date('Y-m-d', strtotime("+{$package['duration_days']} days"));
-    
-    // Create investment
-    $stmt = $pdo->prepare("INSERT INTO user_investments 
-                          (user_id, package_id, amount, start_date, end_date, daily_profit)
-                          VALUES (?, ?, ?, CURDATE(), ?, ?)");
-    $stmt->execute([$user_id, $package_id, $amount, $end_date, $daily_profit]);
-    
-    // Deduct amount from user balance
-    $stmt = $pdo->prepare("UPDATE users SET balance = balance - ? WHERE id = ?");
-    $stmt->execute([$amount, $user_id]);
-    
-    // Record transaction
-    recordTransaction($user_id, $amount, 'investment', 'system', 'approved', "Investment in {$package['name']}");
-    
-    return $pdo->lastInsertId();
-}
+    <div class="container mt-4">
+        <h2>Investment Packages</h2>
+        
+        <div class="row">
+            <?php foreach ($packages as $package): ?>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <?= htmlspecialchars($package['name']) ?>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                $<?= number_format($package['min_amount'], 2) ?> - 
+                                $<?= number_format($package['max_amount'], 2) ?>
+                            </h5>
+                            <p class="card-text">
+                                <strong>ROI:</strong> <?= $package['roi_percentage'] ?>% daily<br>
+                                <strong>Duration:</strong> <?= $package['duration_days'] ?> days
+                            </p>
+                            <a href="invest.php?package_id=<?= $package['id'] ?>" class="btn btn-success">
+                                Invest Now
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</body>
+</html>
